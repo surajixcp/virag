@@ -41,6 +41,39 @@ module.exports = {
       message: `${ADMIN_SERVICE_WELCOME_MSG(ModuleName)} Info Route Working`,
     }),
 
+  Adminlogin: async (req, res, next) => {
+    try {
+      const result = req.body;
+      if (result.role_type !== "Super Admin" ) {
+        return next(createError.BadRequest("Invalid Role Type!"));
+      }
+      // eslint-disable-next-line max-len
+      const user = await Model.findOne({ email: result.email });
+      if (!user) {
+        return next(createError.BadRequest("Not found!"));
+      }
+      let savedRole = await RoleModel.findOne(
+        { role_type: result.role_type },
+        { _id: 1 }
+      );
+      if (!savedRole) {
+        return next(createError.BadRequest("Invalid Role Type!"));
+      }
+      const isMatch = await user.isValidPassword(result.password);
+      if (!isMatch) {
+        return next(createError.NotAcceptable("password not valid"));
+      }
+      const accessToken = await signAccessToken(user.id);
+      return res.send({
+        token: accessToken,
+        user,
+        success: true,
+        message: "PASSWORD VERIFIED SUCCESSFULLY",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
   userlogin: async (req, res, next) => {
     try {
       const result = req.body;
@@ -74,8 +107,6 @@ module.exports = {
       return next(error);
     }
   },
-
-
   generateOtp: async (req, res, next) => {
     try {
       const result = req.body;

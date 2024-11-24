@@ -84,7 +84,7 @@ module.exports = {
           message: "Already Exist..",
         });
       }
-      if (data.role_type !== "User") {
+      if (data.role_type !== "Super Admin") {
         return next(createError.BadRequest("Invalid Role Type!"));
       }
       const { password, confirm_password } = req.body;

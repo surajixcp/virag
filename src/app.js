@@ -21,7 +21,6 @@ const https = require("https");
 const { socketServer, authSocket } = require('./helpers/service/socketService');
 
 // Socket config
-
 let { PORT, PROTOCOL } = process.env;
 if (!PORT) {
   createError(

@@ -14,7 +14,7 @@ const TableSchema = new Schema({
   role_type: {
     type: String,
     unique: true,
-    enum: ['Admin', 'User'],
+    enum: ['Admin', 'User' , "Super Admin","Moderator"],
   },
 
   is_active: {
