@@ -55,6 +55,10 @@ const startServer = () => {
     type: 'text/xml',
   };
   app.use(bodyParser.raw(options));
+
+  app.get('/', (req, res) => {
+    res.status(200).send('Hello, World!');
+  });
   // middleware to add basic logging
   app.use(morgan(MORGAN_CONFIG, { stream: logger.stream }));
   // middleware to parse request
