@@ -2,14 +2,13 @@
 /* eslint-disable linebreak-style */
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-
 const { Schema } = mongoose;
 
 const TableSchema = new Schema({
   name: {
     type: String,
     // required: true
-    unique: true,
+
 
   },
   email: {

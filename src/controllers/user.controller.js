@@ -42,7 +42,6 @@ module.exports = {
       return next(error);
     }
   },
-
   updateById: async (req, res, next) => {
     try {
       const data = req.body;
@@ -65,7 +64,29 @@ module.exports = {
       return next(error);
     }
   },
-
+  updateByIdForAdmin: async (req, res, next) => {
+    try {
+      const id = req.params;
+      const data = req.body;
+      if (!data) {
+        return next(createError.NotAcceptable('Invalid Query Data'));
+      }
+      data.updated_at = new Date();
+      data.updated_by = req.user ? req.user.mobile : 'unauth';
+      data.is_active = false;
+      let result = {};
+      // eslint-disable-next-line max-len
+      result = await Model.findByIdAndUpdate({ _id: mongoose.Types.ObjectId(id) }, { $set: data });
+      // TODO: Set notifications for super admin to approve this service
+      if (result) {
+        return res.status(200).json({ success: true, status: 200, message: 'Data Updated Successfully' });
+      }
+      return next(createError.BadRequest('Failed to update data.'));
+    } catch (error) {
+      console.log(error);
+      return next(error);
+    }
+  },
   userRegister: async (req, res, next) => {
     try {
       const data = req.body;
@@ -122,7 +143,6 @@ module.exports = {
       return next(error);
     }
   },
-
   getList: async (req, res, next) => {
     try {
       const {
@@ -183,7 +203,6 @@ module.exports = {
       return next(error);
     }
   },
-
   getDataById: async (req, res, next) => {
     try {
       const { id } = req.query;

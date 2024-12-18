@@ -13,6 +13,8 @@ router.post('/register', Controller.userRegister);
 
 router.put('/updateById', verifyAccessToken, Controller.updateById);
 
+router.put('/updateByIdForAdmin/:id', verifyAccessToken, Controller.updateByIdForAdmin);
+
 router.get('/getList', Controller.getList);
 
 router.get('/getDeletedList', Controller.getDeletedList);

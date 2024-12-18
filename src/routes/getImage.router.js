@@ -8,7 +8,7 @@ router.get(
   async (req, res) => {
     let filepath = "";
     let defaultfilepath = "";
-    
+
     filepath = `${path.join(__dirname, "../../") + req.params.folder1}/${req.params.folder2}/${req.params.folder3}/${req.params.filename}`;
 
     defaultfilepath = `${path.join(
@@ -23,4 +23,9 @@ router.get(
   }
 );
 
+router.get("/gettestUrl", async (req, res) => {
+
+  res.send("Hi Its working for ");
+
+})
 module.exports = router;

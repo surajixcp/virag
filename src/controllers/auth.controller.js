@@ -274,7 +274,7 @@ module.exports = {
       //   );
       // }
       const userRole = await RoleModel.findOne(
-        { _id: user.role },
+        { _id: mongoose.Types.ObjectId(user.role) },
         {
           _id: 1,
           name: 1,
