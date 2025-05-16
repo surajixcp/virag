@@ -22,10 +22,11 @@ const {
   generateMobileOtp,
   otpTimeStamp,
   generatePassword,
+  generateOtp,
 } = require('../helpers/resource/helper_functions');
 const { mailHelper } = require('../helpers/resource/helper_functions');
+const { sendOtp } = require('../helpers/utils/sendMessage');
 const { logger } = require('../helpers/service/loggerService');
-
 const ModuleName = 'Auth';
 
 
@@ -44,7 +45,7 @@ module.exports = {
   Adminlogin: async (req, res, next) => {
     try {
       const result = req.body;
-      if (result.role_type !== "Super Admin" ) {
+      if (result.role_type !== "Super Admin") {
         return next(createError.BadRequest("Invalid Role Type!"));
       }
       // eslint-disable-next-line max-len
@@ -208,7 +209,6 @@ module.exports = {
       return next(error);
     }
   },
-
   sendOtptoRegister: async (req, res, next) => {
     try {
       const result = req.body;
@@ -218,10 +218,11 @@ module.exports = {
       // eslint-disable-next-line max-len
       const user = await Model.findOne({ mobile: result.mobile });
       const dtm = {
-        otp: await generateMobileOtp(4),
+        otp: await generateOtp(4),
         otp_timestamp: otpTimeStamp(),
         otp_verified: false,
       };
+      await sendOtp(result.mobile, dtm.otp)
       if (!user) {
         dtm.mobile = result.mobile;
         let savedRole = await RoleModel.findOne({ role_type: result.role_type }, { _id: 1 });

@@ -41,18 +41,23 @@ module.exports = {
                 } else {
                     data.user_id = req.user.id
                 }
-                // Save file paths to the mediaUrls array
-                if (req.files && req.files.length > 0) {
-                    data.mediaUrls = req.files.map(file => `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${file.filename}`); // Multiple file paths
+                const IsStoryExist = await Story.findOne({ user_id: mongoose.Types.ObjectId(data.user_id) });
+                if (IsStoryExist) {
+                    return res.status(400).json({ status: 400, success: true, message: 'You have already posted a story.This will allow soon' });
+                } else {
+                    // Save file paths to the mediaUrls array
+                    if (req.files && req.files.length > 0) {
+                        data.mediaUrls = req.files.map(file => `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${file.filename}`); // Multiple file paths
+                    }
+                    // Create a new story with the data and images
+                    const newStory = new Story(data);
+                    const savedStory = await newStory.save();
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Story created successfully',
+                        story: savedStory
+                    });
                 }
-                // Create a new story with the data and images
-                const newStory = new Story(data);
-                const savedStory = await newStory.save();
-                return res.status(200).json({
-                    success: true,
-                    message: 'Story created successfully',
-                    story: savedStory
-                });
             } catch (error) {
                 return next(error); // Handle any other errors
             }
@@ -65,29 +70,84 @@ module.exports = {
      * @param {Object} res - Express response object.
      * @param {Function} next - Express next middleware function.
      */
+    storeUserId: async (fromUserId, toUserId) => {
+        try {
+            if (!fromUserId || !toUserId) {
+                throw createError.BadRequest("User ID not provided.");
+            }
+            // Find the story by user_id
+            let story = await Story.findOne({ user_id: mongoose.Types.ObjectId(toUserId) });
+            if (!story) {
+                throw createError.BadRequest("Story not found.");
+                // story = new Story({
+                //     user_id: mongoose.Types.ObjectId(toUserId),
+                //     viewers: [],
+                // });
+                // await story.save();
+            }
+            const fromUserObjectId = mongoose.Types.ObjectId(fromUserId);
+            if (!Array.isArray(story.viewers)) {
+                story.viewers = []; // Initialize as an empty array if undefined
+            }
+            // Check if the viewer already exists
+            const viewerExists = story.viewers.some(viewer => viewer.id.equals(fromUserObjectId));
+            console.log("viewerExists", viewerExists);
+            if (!viewerExists) {
+                const newViewer = { id: fromUserObjectId, is_read: true };
+                console.log("newViewer", newViewer);
+                const updatedStory = await Story.findOneAndUpdate(
+                    { user_id: mongoose.Types.ObjectId(toUserId) },
+                    { $push: { viewers: newViewer } },
+                    { new: true }
+                );
+
+                console.log("updatedStory", updatedStory);
+                // Notify the story owner
+                // const notification = new Notification({
+                //     user: story.user,
+                //     message: `User ${req.user.username} viewed your story.`,
+                // });
+                // await notification.save();
+            }
+
+            return {
+                success: true,
+                status: 200,
+                message: "Id Added successfully",
+                story,
+            };
+        } catch (error) {
+            throw error;
+        }
+    },
     viewStory: async (req, res, next) => {
         try {
-            const { storyId } = req.params;
-            const story = await Story.findById(storyId);
-
-            if (!story) {
-                throw createError.NotFound('Story not found');
+            const { id } = req.query;
+            if (!id) {
+                throw createError.BadRequest("Invalid Parameters");
             }
-
-            // Add viewer if not already viewed
-            if (!story.viewers.includes(req.user._id)) {
-                story.viewers.push(req.user._id);
-                await story.save();
-
-                // Notify story owner
-                const notification = new Notification({
-                    user: story.user,
-                    message: `User ${req.user.username} viewed your story.`,
-                });
-                await notification.save();
+            // console.log("req.user", req.user)
+            if (!req.user) {
+                return res.status(400).json({ message: 'Please Login.' });
             }
-
-            return res.status(200).json({ success: true, status: 200, message: 'Story viewed successfully', story });
+            const viewerId = req.user.id; // Assuming the current user's ID
+            console.log("id", id)
+            console.log("viewerId", viewerId)
+            // Update the is_read field to false for the specific viewer
+            const updatedStory = await Story.findOneAndUpdate(
+                { _id: mongoose.Types.ObjectId(id), "viewers.id": mongoose.Types.ObjectId(viewerId) }, // Match story and viewer
+                { $set: { "viewers.$.is_read": false } },  // Set is_read to false
+                { new: true } // Return the updated document
+            );
+            if (!updatedStory) {
+                throw createError.NotFound("Story or viewer not found");
+            }
+            return res.status(200).json({
+                success: true,
+                status: 200,
+                message: "Viewer status updated to false",
+                story: updatedStory,
+            });
         } catch (error) {
             return next(error);
         }
@@ -147,9 +207,7 @@ module.exports = {
                 { $skip: _skip },
                 { $limit: _limit }
             ]);
-
             const totalCount = await Story.countDocuments(query);
-
             return res.status(200).json({
                 success: true,
                 status: 200,
@@ -163,6 +221,63 @@ module.exports = {
                     to: _skip + stories.length,
                     total: totalCount,
                 },
+            });
+        } catch (error) {
+            return next(error);
+        }
+    },
+
+    GetFriendListStory: async (req, res, next) => {
+        try {
+            const { id } = req.query;
+            let query = {};
+            if (id) {
+                query = {
+                    "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
+                };
+            }
+
+            const stories = await Story.aggregate([
+                {
+                    $match: query // Apply the filtering query
+                },
+                {
+                    $lookup: {
+                        from: 'users', // Join with the users collection
+                        localField: 'user_id', // Field from Story
+                        foreignField: '_id', // Field from Users
+                        as: 'user' // Alias for the resulting user data
+                    }
+                },
+                {
+                    $project: { // Project the desired fields
+                        "_id": 1,
+                        "user_id": 1,
+                        "text": 1,
+                        "music_url": 1,
+                        "mediaUrls": 1,
+                        "viewers": 1,
+                        "comments": 1,
+                        "is_active": 1,
+                        "user._id": 1,
+                        "user.profile_url_1": 1,
+                        "user.name": 1,
+                        "user.email": 1,
+                        "user.age": 1,
+                        "user.gender": 1,
+                        "user.location": 1,
+                        "user.lookingFor": 1
+                    }
+                }
+            ]);
+            if (stories.length <= 0) {
+                throw createError.NotFound('No stories found');
+            }
+            return res.status(200).json({
+                success: true,
+                status: 200,
+                message: 'Stories fetched successfully',
+                stories
             });
         } catch (error) {
             return next(error);

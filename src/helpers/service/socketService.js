@@ -1,125 +1,23 @@
-// const jwt = require("jsonwebtoken");
-// const controller = require("../../controllers/message.controller")
-// let users = [];
-
-// const authSocket = (socket, next) => {
-//   let token = socket.handshake.auth.token;
-//   if (token) {
-//     try {
-//       const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-//       socket.decoded = decoded;
-//       next();
-//     } catch (err) {
-//       next(new Error("Authentication error"));
-//     }
-//   } else {
-//     next(new Error("Authentication error"));
-//   }
-// };
-
-
-// const socketServer = (io, socket) => {
-//   const userId = socket.decoded.aud;
-//   users.push({ userId, socketId: socket.id });
-//   socket.on("send-message", async (payload) => {
-//     await controller.Sendmessage(payload.content, payload.fromUserId, payload.toUserId);
-//     const recipient = users.find((user) => user.userId === payload.toUserId);
-//     if (recipient) {
-//       io.to(recipient.socketId).emit("receive-message", {
-//         fromUserId: userId,
-//         content: payload.content,
-//       });
-//     }
-//   });
-
-//   socket.on("disconnect", () => {
-//     users = users.filter((user) => user.userId !== userId);
-//   });
-// };
-
-// module.exports = { socketServer, authSocket };
-
-// const { Server, Socket } = require("socket.io");
-// const { sub, pub, store } = require("./redis-config");
-// const { Message } = require("../../models/message.model"); // Message model
-// const { Conversation } = require("../../models/conversation.model"); // Conversation model
-
-// const REDIS_CHAT_CHANNEL = "CHAT_MESSAGE";
-// const setupSocket = (io) => {
-//   io.on("connection", (socket) => {
-//     console.log(`Socket connected: ${socket.id}`);
-
-//     // Handle user connection
-//     socket.on("user_connected", async (userId) => {
-//       try {
-//         await store.set(`user:${userId}`, socket.id); // Use prefixed keys for better organization
-//         console.log(`User connected: ${userId}`);
-//       } catch (error) {
-//         console.error("Error storing user in Redis:", error);
-//       }
-//     });
-
-//     // Handle private message
-//     socket.on("private_message", async (data) => {
-//       const { sender, receiver, content } = data; // Extract fields from the data object
-//       try {
-//         // Save message to database (uncomment when model is available)
-//         // const message = new Message(data);
-//         // await message.save();
-//         // Publish message to Redis
-//         await pub.publish(REDIS_CHAT_CHANNEL, JSON.stringify(data));
-//       } catch (error) {
-//         console.error("Error processing private message:", error);
-//       }
-//     });
-
-//     // Handle disconnect
-//     socket.on("disconnect", async () => {
-//       try {
-//         const keys = await store.keys("user:*"); // Use prefixed keys for better performance
-//         for (const key of keys) {
-//           const value = await store.get(key);
-//           if (value === socket.id) {
-//             await store.del(key); // Remove Redis key if it matches the disconnected socket
-//             console.log(`User disconnected: ${key.replace("user:", "")}`);
-//           }
-//         }
-//       } catch (error) {
-//         console.error("Error handling disconnect:", error);
-//       }
-//     });
-//   });
-
-//   // Subscribe to Redis channel
-//   sub.subscribe(REDIS_CHAT_CHANNEL);
-
-//   // Handle messages from Redis
-//   sub.on("message", async (channel, message) => {
-//     if (channel === REDIS_CHAT_CHANNEL) {
-//       try {
-//         const parsedMessage = JSON.parse(message);
-//         const receiverSocketID = await store.get(`user:${parsedMessage.receiver}`);
-
-//         if (receiverSocketID) {
-//           io.to(receiverSocketID).emit("new_message", parsedMessage);
-//         }
-//       } catch (error) {
-//         console.error("Error handling Redis message:", error);
-//       }
-//     }
-//   });
-// };
-
-// module.exports = { setupSocket };
-
-
-// new code 
-const { Server, Socket } = require("socket.io");
+const { Server } = require("socket.io");
 const { sub, pub, store } = require("./redis-config");
 const Message = require("../../models/message.model"); // Import the Message model
 const Conversation = require("../../models/conversation.model"); // Import the Conversation model
-
+const storyController = require("../../controllers/story.controller");
+const cron = require('node-cron');
 const REDIS_CHAT_CHANNEL = "CHAT_MESSAGE";
+
+// setInterval(async () => {
+//   try {
+//       // Example user IDs for testing the interval
+//       const fromUserId = '676aec066f379376644ad72d';
+//       const toUserId = '676aec106f379376644ad733';
+
+//       console.log('Interval triggered every 10 seconds!');
+//       await storyController.storeUserId(fromUserId, toUserId);
+//   } catch (error) {
+//       console.error("Error in interval:", error);
+//   }
+// }, 10000);
 
 const setupSocket = (io) => {
   io.on("connection", (socket) => {
@@ -138,7 +36,6 @@ const setupSocket = (io) => {
     // Handle private message
     socket.on("private_message", async (data) => {
       const { fromUserId, toUserId, content, fileName, filePath } = data;
-
       try {
         // Ensure a conversation exists
         let conversation = await Conversation.findOne({
@@ -151,7 +48,7 @@ const setupSocket = (io) => {
           });
           await conversation.save();
         }
-
+        await storyController.storeUserId(fromUserId, toUserId)
         // Save the message to the database
         const message = new Message({
           conversation: conversation._id,
@@ -207,19 +104,106 @@ const setupSocket = (io) => {
     if (channel === REDIS_CHAT_CHANNEL) {
       try {
         const parsedMessage = JSON.parse(message);
+        console.log("Received message:", parsedMessage);
 
         // Get the receiver's socket ID from Redis
         const receiverSocketID = await store.get(`user:${parsedMessage.toUserId}`);
+        console.log("Receiver's socket ID:", receiverSocketID);
 
         if (receiverSocketID) {
-          io.to(receiverSocketID).emit("new_message", parsedMessage); // Emit to the receiver
+          // Emit the message to the receiver's socket
+          io.to(receiverSocketID).emit("new_message", parsedMessage);
           console.log(`Message sent to user: ${parsedMessage.toUserId}`);
+        } else {
+          console.log(`No socket ID found for user: ${parsedMessage.toUserId}`);
         }
       } catch (error) {
         console.error("Error handling Redis message:", error);
       }
     }
   });
+
 };
 
 module.exports = { setupSocket };
+
+// const { Server } = require("socket.io");
+// const { sub, pub, store } = require("./redis-config");
+// const Message = require("../../models/message.model");
+
+// const REDIS_CHAT_CHANNEL = 'CHAT_MESSAGE';
+
+// const setupSocket = (io) => {
+
+//     io.on('connection', (socket) => {
+
+//         // Handle user connection
+//         socket.on('user_connected', async (userId) => {
+//             try {
+//                 await store.set(userId, socket.id);
+//                 console.log(`User connected: ${userId}`);
+//             } catch (error) {
+//                 console.error('Error storing user in Redis:', error);
+//             }
+//         });
+
+//         // Handle private message
+//         socket.on('private_message', async (data) => {
+//             const { sender, receiver, content } = data;
+
+//             try {
+//                 // Save the message to the database
+//                 const message = new Message({ sender, receiver, content });
+//                 await message.save();
+
+//                 // Publish the message to Redis
+//                 pub.publish(REDIS_CHAT_CHANNEL, JSON.stringify(data));
+//                 console.log('Message saved and published successfully.');
+//             } catch (error) {
+//                 console.error('Error saving message:', error);
+//             }
+//         });
+
+//         // Handle user disconnection
+//         socket.on('disconnect', async () => {
+//             try {
+//                 const keys = await store.keys("*"); // Get all Redis keys
+//                 for (const key of keys) {
+//                     const value = await store.get(key);
+//                     if (value === socket.id) {
+//                         await store.del(key); // Remove key if it matches the socket ID
+//                         console.log(`User disconnected: ${key}`);
+//                     }
+//                 }
+//             } catch (error) {
+//                 console.error('Error handling disconnection:', error);
+//             }
+//         });
+//     });
+
+//     // Subscribe to the Redis chat channel
+//     sub.subscribe(REDIS_CHAT_CHANNEL);
+
+//     // Listen for Redis messages and emit them to the recipient's socket
+//     sub.on('message', async (channel, message) => {
+//         if (channel === REDIS_CHAT_CHANNEL) {
+//             try {
+//                 const parsedMessage = JSON.parse(message);
+//                 const { receiver } = parsedMessage;
+
+//                 const receiverSocketID = await store.get(receiver);
+
+//                 if (receiverSocketID) {
+//                     io.to(receiverSocketID).emit('new_message', parsedMessage);
+//                     console.log(`Message sent to user: ${receiver}`);
+//                 } else {
+//                     console.log(`Receiver not connected: ${receiver}`);
+//                 }
+//             } catch (error) {
+//                 console.error('Error handling Redis message:', error);
+//             }
+//         }
+//     });
+// };
+
+// module.exports = { setupSocket };

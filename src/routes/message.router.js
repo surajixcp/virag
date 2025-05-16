@@ -15,9 +15,7 @@ router.get('/getList', Controller.getList);
 
 router.get('/getDeletedList', Controller.getDeletedList);
 
-router.get("/", verifyAccessToken, Controller.getConversations);
-
-router.post("/", verifyAccessToken, Controller.sendMessage);
+router.get("/getUserswithLastMsg", verifyAccessToken, Controller.getConversations);
 
 router.get("/:id", verifyAccessToken, Controller.getMessages);
 

@@ -9,9 +9,12 @@ router.get('/getInfo', Controller.getInfo);
 
 router.post('/create', verifyAccessToken, Controller.createStoryWithImages);
 
-// router.put('/updateById', Controller.updateById);
+
+router.put('/viewStoryById', verifyAccessToken, Controller.viewStory);
 
 // router.get('/getList', Controller.getList);
+
+router.get('/getFriendListStory',verifyAccessToken, Controller.GetFriendListStory);
 
 // router.get('/getDeletedList', Controller.getDeletedList);
 

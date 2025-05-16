@@ -56,15 +56,25 @@ const startServer = () => {
   };
   app.use(bodyParser.raw(options));
 
-  app.get('/', (req, res) => {
-    res.status(200).send('Hello, World!');
-  });
   // middleware to add basic logging
   app.use(morgan(MORGAN_CONFIG, { stream: logger.stream }));
+
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '../views'));
+  app.use(express.static('public'));
+
+  let pages = [
+    { id: '1', title: 'About Us' },
+    { id: '2', title: 'Contact' },
+    { id: '3', title: 'Terms and Conditions' },
+  ];
+  app.get('/deleteUser', (req, res) => {
+    res.render('index', { pages });
+  });
   // middleware to parse request
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, 'public')));
-  app.use('/', express.static(path.join(__dirname, 'public', 'frontend')));
+  // app.use(express.static(path.join(__dirname, 'public')));
+  // app.use('/', express.static(path.join(__dirname, 'public', 'frontend')));
   // add all routes
   addRoutes(app);
   // error handling
@@ -88,7 +98,7 @@ const startServer = () => {
 
 
   /* -----------Start Websocket------------*/
-  const httpServer = http.createServer(app);
+  // const httpServer = http.createServer(app);
   // Initialize HTTP or HTTPS server based on protocol
   if (PROTOCOL === "http") {
     const httpServer = createServer(app);

@@ -17,15 +17,17 @@ const StorySchema = new Schema({
     mediaUrls: [{
         type: String, // Array of URLs for multiple media files (images/videos)
     }],
-    viewers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        //  ref: 'User'
-    }],
+    viewers: [
+        // {
+        //     id: { type: mongoose.Schema.Types.ObjectId, required: true },
+        //     is_read: { type: Boolean, default: false },
+        // },
+    ],
     comments: [{
         type: mongoose.Schema.Types.ObjectId,
         //  ref: 'Comment'
     }],
-    
+
     is_active: {
         type: Boolean,
         default: true,
@@ -42,7 +44,7 @@ const StorySchema = new Schema({
         type: String,
         default: 'self',
     },
-    createdAt: { type: Date, default: Date.now, expires: '24h' }, // Story expires after 24 hours
+    // createdAt: { type: Date, default: Date.now, expires: '24h' }, // Story expires after 24 hours
 });
 
 const Story = mongoose.model('story', StorySchema);

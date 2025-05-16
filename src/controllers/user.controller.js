@@ -258,6 +258,27 @@ module.exports = {
       return next(error);
     }
   },
+  deleteDataByMobile: async (req, res, next) => {
+    try {
+      const { mobile } = req.query;
+      if (!mobile) {
+        throw createError.BadRequest('Invalid Parameters');
+      }
+      const data = {};
+      data.updated_at = new Date();
+      data.updated_by = req.user ? req.user.mobile : 'unauth';
+      data.is_active = false;
+      let result = {};
+      // eslint-disable-next-line max-len
+      result = await Model.findOneAndUpdate({ mobile: mobile }, { $set: data });
+      if (result) {
+        return res.status(200).json({ success: true, message: 'Data Deleted Successfully' });
+      }
+      return next(createError.BadRequest('Failed to delete data.'));
+    } catch (error) {
+      return next(error);
+    }
+  },
   restoreDataById: async (req, res, next) => {
     try {
       const { id } = req.query;

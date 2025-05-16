@@ -77,7 +77,7 @@ module.exports = {
     for (let i = 0, n = charset.length; i < length; ++i) {
       // retVal += charset.charAt(Math.floor(Math.random() * n));
     }
-    if (mobile === 8340325876) {
+    if (mobile === 8888888888) {
       retVal = '1111';
     }
     return retVal;

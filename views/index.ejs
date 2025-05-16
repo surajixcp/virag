@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>User Delete Page by Title</title>
+    <style>
+        .input-delete {
+            width: 60%;
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        input {
+            padding: 8px;
+            width: 300px;
+        }
+
+        button {
+            padding: 5px 10px;
+            background-color: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Delete user by mobile number</h1>
+
+    <!-- Input box and Delete button -->
+    <div class="input-delete">
+        <input type="text" id="searchInput" placeholder="Enter Mobile Number">
+        <button onclick="deleteByTitle()">Delete</button>
+    </div>
+
+    <script>
+        // Example pages array (this should come from your API or server)
+        const pages = [
+            { id: '1', title: 'About Us' },
+            { id: '2', title: 'Contact' },
+            { id: '3', title: 'Terms and Conditions' },
+        ];
+
+        // Function to delete by title
+        async function deleteByTitle() {
+            const inputTitle = document.getElementById('searchInput').value.trim();
+            if (!inputTitle) {
+                alert('Please enter a title.');
+                return;
+            }
+            // Find the page ID by matching title
+            const mobile = inputTitle.toLowerCase();
+            if (!mobile) {
+                alert('No User found.');
+                return;
+            }
+            if (confirm(`Are you sure you want to delete "${mobile}"?`)) {
+                const response = await fetch(`https://api.theviraag.com/api/user/deleteDataByMobile?mobile=${mobile}`, {
+                    method: 'PUT',
+                });
+                const data = await response.json(); // parse the actual body
+                console.log("data", data);
+                if (data.status == "200") {
+                    alert(data.message); // Now you can access message
+                }
+                alert(data.message);
+                document.getElementById('searchInput').value = ''; // Clear input after deletion
+            }
+        }
+    </script>
+
+</body>
+
+</html>

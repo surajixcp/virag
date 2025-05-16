@@ -41,6 +41,31 @@ module.exports = {
             return next(error);
         }
     },
+    messageSeenById: async (req, res, next) => {
+        try {
+            const conversationid = req.query.data;
+            const fondedData = await Model.find({ conversation: mongoose.Types.ObjectId(conversationid) });
+            if (fondedData.length <= 0) {
+                return next(createError.NotAcceptable('Invalid Query Data'));
+            }
+            data.updated_at = new Date();
+            data.updated_by = req.user ? req.user.mobile : 'unauth';
+            data.is_read = true;
+            if (!(data.role_type === fondedData.role_type)) {
+                return next(createError.NotAcceptable('You cannot change role type!'));
+            }
+            let result = {};
+            // eslint-disable-next-line max-len
+            result = await Model.findByIdAndUpdate({ conversation: mongoose.Types.ObjectId(conversationid) }, { $set: data });
+            // TODO: Set notifications for super admin to approve this service
+            if (result) {
+                return res.status(200).json({ success: true, status: 200, message: 'Data Updated Successfully' });
+            }
+            return next(createError.BadRequest('Failed to update data.'));
+        } catch (error) {
+            return next(error);
+        }
+    },
     updateById: async (req, res, next) => {
         try {
             const data = req.body;
@@ -225,13 +250,13 @@ module.exports = {
             if (!id) {
                 throw createError.BadRequest('Invalid Parameters');
             }
-            const conversation = await Conversation.findById(id);
-            if (!conversation) {
-                throw new Error("Conversation not found");
-            }
+            // const conversation = await Conversation.findById(id);
+            // if (!conversation) {
+            //     throw new Error("Conversation not found");
+            // }
             const result = await Model.aggregate([
                 {
-                    $match: { conversation: mongoose.Types.ObjectId(id) },
+                    $match: { toUserId: mongoose.Types.ObjectId(id) },
                 },
             ]);
             if (!result.length) {
@@ -305,6 +330,19 @@ module.exports = {
                     }
                 },
                 {
+                    $lookup: {
+                        from: 'messages', // Replace with your actual message collection name
+                        let: { conversationId: '$_id' },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ['$conversation', '$$conversationId'] } } },
+                            { $sort: { created_at: -1 } },
+                            { $limit: 1 },
+                        ],
+                        as: 'lastMessage',
+                    },
+                },
+                { $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
+                {
                     $match: name ? {
                         'users.name': { $regex: new RegExp(name.trim(), 'i') }
                     } : {}
@@ -333,7 +371,30 @@ module.exports = {
                                     // Add more fields if needed
                                 }
                             }
-                        }
+                        },
+                        lastMessage: {
+                            content: "$lastMessage.content",
+                            created_at: "$lastMessage.created_at",
+                            fromUserId: "$lastMessage.fromUserId",
+                            toUserId: "$lastMessage.toUserId",
+                        },
+
+                        // {
+                        //     "_id": "676d97669d42c440d58b7b40",
+                        //     "conversation": "676d45cfd671f62e4c9bf222",
+                        //     "fromUserId": "676bcba86f379376644ad847",
+                        //     "toUserId": "676aec066f379376644ad72d",
+                        //     "content": "Hi",
+                        //     "fileName": "",
+                        //     "filePath": "",
+                        //     "is_read": false,
+                        //     "is_active": false,
+                        //     "created_at": "2024-12-26T17:46:46.104Z",
+                        //     "created_by": "self",
+                        //     "updated_at": "2024-12-26T17:46:46.104Z",
+                        //     "updated_by": "self",
+                        //     "__v": 0
+                        // }
 
 
                     }
@@ -517,8 +578,8 @@ module.exports = {
     },
     deleteDataById: async (req, res, next) => {
         try {
-            const { id } = req.query;
-            if (!id) {
+            const { conversation } = req.query;
+            if (!conversation) {
                 throw createError.BadRequest('Invalid Parameters');
             }
             const data = {};
@@ -527,7 +588,7 @@ module.exports = {
             data.is_active = false;
             let result = {};
             // eslint-disable-next-line max-len
-            result = await Model.findByIdAndUpdate({ _id: mongoose.Types.ObjectId(id) }, { $set: data });
+            result = await Model.updateMany({ conversation: mongoose.Types.ObjectId(conversation) }, { $set: data });
             if (result) {
                 return res.status(200).json({ success: true, message: 'Data Deleted Successfully' });
             }

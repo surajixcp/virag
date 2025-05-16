@@ -23,6 +23,8 @@ router.get('/getDataById', Controller.getDataById);
 
 router.put('/deleteDataById', Controller.deleteDataById);
 
+router.put('/deleteDataByMobile', Controller.deleteDataByMobile);
+
 router.put('/restoreDataById', Controller.restoreDataById);
 
 router.delete('/permanentDeleteDataById/:id', Controller.permanentDeleteDataById);
@@ -30,3 +32,4 @@ router.delete('/permanentDeleteDataById/:id', Controller.permanentDeleteDataById
 module.exports = {
   userRouter: router,
 };
+
