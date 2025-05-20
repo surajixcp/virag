@@ -17,6 +17,7 @@ const { MessageRouter } = require('./message.router');
 const { profileVisitorRouter } = require('./profile.visitor.router');
 const config = require('../helpers/environment/config');
 const { storyRouter } = require('./story.router');
+const { generateRtcToken, generateRtmToken } = require('./testAudioAndVideo.router');
 
 /**
  * Generates all routes for the application.
@@ -40,6 +41,8 @@ const addRoutes = (app) => {
   app.use(`${prefix}/visit`, profileVisitorRouter);
   app.use(`${prefix}/message`, MessageRouter);
   app.use(`${prefix}/story`, storyRouter);
+  app.use(`${prefix}/generateRtcToken`, generateRtcToken);
+  app.use(`${prefix}/generateRtmToken`, generateRtmToken);
 };
 module.exports = {
   addRoutes,
