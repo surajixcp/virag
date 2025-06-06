@@ -7,6 +7,7 @@ const createError = require('http-errors');
 const mongoose = require('mongoose');
 const Model = require('../models/user.model');
 const LifeStyle = require('../models/lifeStyle.model');
+const StatusModel = require('../models/status.model');
 const { ADMIN_SERVICE_WELCOME_MSG } = require('../helpers/resource/constants');
 const { uploadProfileData, uploadProfilePicture } = require('../helpers/resource/helper_functions');
 const { currentDateInfo, calculateAge } = require('../helpers/resource/constants')
@@ -104,8 +105,35 @@ module.exports = {
                     return next(createError.BadRequest(`Please login ${JSON.stringify(doesExist)}`));
                 }
                 let result = {};
+                let status = {};
                 // eslint-disable-next-line max-len
                 result = await Model.findByIdAndUpdate({ _id: mongoose.Types.ObjectId(id) }, { $set: data });
+                status = await StatusModel.findOne({ user_id: mongoose.Types.ObjectId(id) }, { _id: 1 });
+                const pageNumber = data.pageNumber;
+                if (pageNumber) {
+                    const profileKey = `is_profile_${pageNumber}`;
+                    const StatusObj = {
+                        [profileKey]: true
+                    };
+
+                    const status = await StatusModel.findOne(
+                        { user_id: mongoose.Types.ObjectId(id) },
+                        { _id: 1 }
+                    );
+
+                    if (status) {
+                        await StatusModel.updateOne(
+                            { user_id: mongoose.Types.ObjectId(id) },
+                            { $set: StatusObj }
+                        );
+                    } else if (pageNumber === 1) {
+                        // Only create a new document when on page 1
+                        await StatusModel.create({
+                            user_id: mongoose.Types.ObjectId(id),
+                            [profileKey]: true
+                        });
+                    }
+                }
                 if (result) {
                     return res.status(200).json({ success: true, status: 200, message: 'Data Inserted Successfully' });
                 }
@@ -719,6 +747,40 @@ module.exports = {
             return next(error);
         }
     },
+    deleteProfileUrlByKey: async (req, res, next) => {
+        try {
+            const { id, key } = req.query;
+
+            if (!id || !key || !key.startsWith('profile_url_')) {
+                throw createError.BadRequest('Invalid Parameters');
+            }
+
+            const data = {
+                updated_at: new Date(),
+                updated_by: req.user ? req.user.mobile : 'unauth',
+            };
+
+            // Prepare $unset to delete the specific key
+            const update = {
+                $unset: { [key]: "" },
+                $set: data
+            };
+
+            const result = await Model.findByIdAndUpdate(
+                { _id: mongoose.Types.ObjectId(id) },
+                update
+            );
+
+            if (result) {
+                return res.status(200).json({ success: true, message: `${key} deleted successfully` });
+            }
+
+            return next(createError.BadRequest('Failed to delete profile URL.'));
+        } catch (error) {
+            return next(error);
+        }
+    }
+    ,
     deleteDataById: async (req, res, next) => {
         try {
             const { id } = req.query;

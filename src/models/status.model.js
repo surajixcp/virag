@@ -23,6 +23,36 @@ const TableSchema = new Schema({
     default: true,
 
   },
+  is_profile_1: {
+    type: Boolean,
+    default: false,
+
+  },
+  is_profile_2: {
+    type: Boolean,
+    default: false,
+
+  },
+  is_profile_3: {
+    type: Boolean,
+    default: false,
+
+  },
+  is_profile_4: {
+    type: Boolean,
+    default: false,
+
+  },
+  is_profile_5: {
+    type: Boolean,
+    default: false,
+
+  },
+  is_profile_6: {
+    type: Boolean,
+    default: false,
+
+  },
   is_blocked: {
     type: Boolean,
     default: false,

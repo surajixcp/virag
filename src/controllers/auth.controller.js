@@ -238,10 +238,9 @@ module.exports = {
         }
         const newUser = new Model(dtm);
         const savedUser = await newUser.save();
-        // role
-        // await StatusModel.create({ user_id: newUser._id });
-
+        console.log("newUser", newUser);
         // status
+        await StatusModel.create({ user_id: newUser._id });
         if (savedUser) {
           return res.status(200).json({
             success: true,
@@ -257,12 +256,12 @@ module.exports = {
         }
         return next(createError.BadRequest('Something Error!'));
       }
-      // const status = await StatusModel.findOne({
-      //   userId: mongoose.Types.ObjectId(user._id),
-      // });
-      // if (!status) {
-      //   return next(createError.BadRequest('User status not found!'));
-      // }
+      const status = await StatusModel.findOne({
+        user_id: mongoose.Types.ObjectId(user._id),
+      });
+      if (!status) {
+        await StatusModel.create({ user_id: user._id });
+      }
       // if (status.is_blocked) {
       //   throw createError.BadRequest('Your account is blocked contact admin.');
       // }
@@ -316,6 +315,8 @@ module.exports = {
       const result = req.body;
       const otp = await generateMobileOtp(4);
       const user = await Model.findOne({ mobile: result.mobile });
+      const status = await StatusModel.findOne({ user_id: mongoose.Types.ObjectId(user._id) })
+      console.log("user._id", user._id);
       if (!user) {
         throw createError.NotFound('User not available');
       }
@@ -339,10 +340,20 @@ module.exports = {
         { $set: { otp_verified: true, otp } },
       );
       const accessToken = await signAccessToken(user.id);
+      console.log("status", status);
+      const filteredStatus = {
+        is_oldUser: user.is_oldUser,
+        is_profile_1: status.is_profile_1,
+        is_profile_2: status.is_profile_2,
+        is_profile_3: status.is_profile_3,
+        is_profile_4: status.is_profile_4,
+        is_profile_5: status.is_profile_5,
+        is_profile_6: status.is_profile_6,
+      };
       return res.send({
         token: accessToken,
         id: user._id,
-        is_oldUser: user.is_oldUser,
+        status: filteredStatus,
         success: true,
         message: 'OTP VERIFIED SUCCESSFULLY',
       });

@@ -8,7 +8,7 @@ const { verifyAccessToken } = require('../helpers/authentication/jwt_helper_user
 
 router.get('/getInfo', Controller.getInfo);
 
-router.post('/create', verifyAccessToken, Controller.create);
+router.put('/create', verifyAccessToken, Controller.create);
 
 router.put('/picture-upload', verifyAccessToken, Controller.uploadpictures);
 
@@ -25,6 +25,8 @@ router.get('/getDeletedList', Controller.getDeletedList);
 router.get('/getDataById', Controller.getDataById);
 
 router.get('/filter/users', verifyAccessToken, Controller.FilterUsers);
+
+router.put('/deleteProfileUrlByKey', Controller.deleteProfileUrlByKey);
 
 router.put('/deleteDataById', Controller.deleteDataById);
 
