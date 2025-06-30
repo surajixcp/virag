@@ -45,7 +45,12 @@ module.exports = {
                 if (IsStoryExist) {
                     return res.status(400).json({ status: 400, success: true, message: 'You have already posted a story.This will allow soon' });
                 } else {
+
+                    // if (req.file) {
+                    //     data.mediaUrls = `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${file.filename} `
+                    // }
                     // Save file paths to the mediaUrls array
+                    console.log("req.files", req.files);
                     if (req.files && req.files.length > 0) {
                         data.mediaUrls = req.files.map(file => `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${file.filename}`); // Multiple file paths
                     }
@@ -227,16 +232,22 @@ module.exports = {
         }
     },
 
+
+
     GetFriendListStory: async (req, res, next) => {
         try {
             const { id } = req.query;
             let query = {};
-            if (id) {
-                query = {
-                    "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
-                };
-            }
-
+            // if (id) {
+            //     query = {
+            //         "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
+            //     };
+            // }
+            // if (id) {
+            //     query = {
+            //         "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
+            //     };
+            // }
             const stories = await Story.aggregate([
                 {
                     $match: query // Apply the filtering query
@@ -249,6 +260,13 @@ module.exports = {
                         as: 'user' // Alias for the resulting user data
                     }
                 },
+                {
+                    $unwind: {
+                        path: "$user",
+                        preserveNullAndEmptyArrays: true // optional, if you want to keep docs even if user not found
+                    }
+                }
+                ,
                 {
                     $project: { // Project the desired fields
                         "_id": 1,

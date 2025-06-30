@@ -3,9 +3,11 @@ const express = require('express');
 
 const router = express.Router();
 const Controller = require('../controllers/message.controller.js');
-const { verifyAccessToken } = require('../helpers/authentication/jwt_helper_user.js')
+const { verifyAccessToken } = require('../helpers/authentication/jwt_helper_user.js');
+const { blockCheck } = require('../helpers/middleware/middleware.js');
 
-router.get('/getInfo', Controller.getInfo);
+
+router.get('/getInfo', blockCheck, Controller.getInfo);
 
 router.post('/send', Controller.create);
 
