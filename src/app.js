@@ -1,6 +1,5 @@
 /* eslint-disable linebreak-style */
 // Import the required npm packages
-
 const express = require('express');
 const morgan = require('morgan');
 const createError = require('http-errors');

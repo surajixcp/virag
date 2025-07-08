@@ -11,7 +11,8 @@
     "watch": "jest --coverage --watchAll",
     "lint": "eslint ./src && eslint ./tests",
     "testOnly": "jest",
-    "checkCodeQuality": "eslint ./src && eslint ./tests && jest --coverage"
+    "checkCodeQuality": "eslint ./src && eslint ./tests && jest --coverage",
+    "get_server": "ssh -i C:\\Users\\sazid\\Downloads\\serverCred\\private_key.pem ubuntu@43.204.238.110"
   },
   "author": "Sazid",
   "license": "ISC",

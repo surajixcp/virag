@@ -7,6 +7,9 @@ const TableSchema = new Schema({
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
   },
+  name: {
+    type: String,
+  },
   plan_type: {
     type: String,
     enum: ['basic', 'standered',
