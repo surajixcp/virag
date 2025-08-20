@@ -13,7 +13,7 @@ const TableSchema = new Schema({
   plan_type: {
     type: String,
     enum: ['basic', 'standered',
-      'premium', 'custom']
+      'premium']
   },
   price: {
     type: Object

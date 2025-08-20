@@ -15,7 +15,7 @@ exports.generateRtcToken = (req, res, next) => {
         if (!channelName) {
             return res.status(400).json({ error: 'Channel name is required' });
         }
-
+ 
         const currentTimestamp = Math.floor(Date.now() / 1000);
         const privilegeExpireTime = currentTimestamp + expireTimeInSeconds;
 

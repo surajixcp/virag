@@ -81,6 +81,9 @@ module.exports = {
                     req.body.incognito = false;
                 }
                 const data = req.body;
+                if ((data.longitude === undefined || data.longitude === null) && (data.latitude === undefined || data.latitude === null)) {
+                    return next(createError.BadRequest('Longitude and Latitude are required'));
+                }
                 let id;
                 if (req.user && req.user.id) {
                     id = req.user.id;
