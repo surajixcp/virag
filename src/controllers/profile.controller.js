@@ -322,6 +322,13 @@ module.exports = {
             if (location) {
                 query.location = { $regex: location, $options: "i" };
             }
+            // ✅ Restrict users here
+            // query.is_verified = true;   // must be verified
+            query.is_active = true;     // must be active
+            query.otp_verified = true;  // must have OTP verified
+            query.is_oldUser = true;  // must have OTP verified
+            // "is_active": false,
+         
             if (gender) {
                 query.gender = { $regex: gender, $options: "i" };
             }

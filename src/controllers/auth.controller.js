@@ -335,9 +335,14 @@ module.exports = {
       if (!isMatch) {
         throw createError.NotAcceptable('otp not valid');
       }
+      const update = {
+        otp: otp,
+        otp_verified: true,
+        is_active: true,
+      }
       await Model.updateOne(
         { _id: mongoose.Types.ObjectId(user._id) },
-        { $set: { otp_verified: true, otp } },
+        { $set: update },
       );
       const accessToken = await signAccessToken(user.id);
       console.log("status", status);
