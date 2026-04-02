@@ -78,6 +78,16 @@ const TableSchema = new Schema({
   profile_url_5: {
     type: String,
   },
+  discoverySettings: {
+    maxDistance: { type: Number, default: 50 }, // measured in km
+    minAge: { type: Number, default: 18 },
+    maxAge: { type: Number, default: 60 },
+  },
+  swipeLimits: {
+    count: { type: Number, default: 0 },
+    lastResetDate: { type: Date, default: Date.now },
+    superLikes: { type: Number, default: 0 }
+  },
   likeCount: {
     type: Number,
     default: 0
@@ -90,6 +100,14 @@ const TableSchema = new Schema({
   is_verified: {
     type: Boolean,
     default: false,
+  },
+  verification_image: {
+    type: String,
+  },
+  verification_status: {
+    type: String,
+    enum: ['unverified', 'pending', 'verified', 'rejected'],
+    default: 'unverified',
   },
   otp: {
     type: String,

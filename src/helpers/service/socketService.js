@@ -37,6 +37,22 @@ const setupSocket = (io) => {
     socket.on("private_message", async (data) => {
       const { fromUserId, toUserId, content, fileName, filePath } = data;
       try {
+        // 🚫 Firewall: Drop message if a block exists
+        const BlockModel = require("../../models/Block.model");
+        const mongoose = require("mongoose");
+        const isBlocked = await BlockModel.findOne({
+          $or: [
+            { blocker: mongoose.Types.ObjectId(fromUserId), blocked: mongoose.Types.ObjectId(toUserId) },
+            { blocker: mongoose.Types.ObjectId(toUserId), blocked: mongoose.Types.ObjectId(fromUserId) }
+          ],
+          isBlocked: true
+        });
+
+        if (isBlocked) {
+          console.log(`[Socket Firewall] Message dropped: Block exists between ${fromUserId} & ${toUserId}`);
+          return;
+        }
+
         // Ensure a conversation exists
         let conversation = await Conversation.findOne({
           recipients: { $all: [fromUserId, toUserId] },
@@ -72,6 +88,25 @@ const setupSocket = (io) => {
           created_at: savedMessage.created_at,
         };
         await pub.publish(REDIS_CHAT_CHANNEL, JSON.stringify(messageData));
+
+        // SEND PUSH NOTIFICATION FOR NEW MESSAGE
+        try {
+            const ProfileModel = require("../../models/user.model");
+            const sender = await ProfileModel.findById(fromUserId);
+            const receiver = await ProfileModel.findById(toUserId);
+
+            if (receiver && receiver.expoPushToken && sender) {
+                const { sendPushNotification } = require("./pushService");
+                await sendPushNotification(
+                    [receiver.expoPushToken],
+                    sender.name || "New Message",
+                    content,
+                    { route: 'Chat', recipientId: fromUserId }
+                );
+            }
+        } catch (pushErr) {
+            console.error("Chat Push Notification Error:", pushErr);
+        }
 
         console.log("Message saved and published successfully.");
       } catch (error) {

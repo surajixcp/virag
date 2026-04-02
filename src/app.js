@@ -139,12 +139,9 @@ const startServer = () => {
       },
     });
 
-    setupSocket(io); // Set up WebSocket events
+    setupSocket(io);
 
-    // httpsServer.listen(PORT, () => {
-    //   console.log(`Server started on HTTPS at port ${PORT}`);
-    // });
-    httpServer.listen(config.port, () => {
+    httpsServer.listen(config.port, () => {
       console.log(config.startedMessage);
     });
   } else {
@@ -155,41 +152,15 @@ const startServer = () => {
   }
 
 
-  // // const httpServer = require("http").createServer(app);
-  // const io = require("socket.io")(httpServer, {
-  //   cors: {
-  //     origin: ["http://localhost:3000",],
-  //   },
-  // });
-
-
-  // io.use(authSocket);
-  // // io.on("connection", (socket) => socketServer(socket));
-  // io.on("connection", (socket) => {
-  //   socketServer(io, socket); // Pass io and socket to the socketServer
-  // });
-  // socketService.listenConnection();
-  // const io = require("socket.io")(httpServer, {
-  //   cors: {
-  //     origin: ["http://localhost:3000",],
-  //   },
-  // });
   // Define WebSocket events
-  // io.on("connection", (socket) => {
-  //   console.log("A user connected");
-
-  //   // Example event handling
-  //   socket.on("message", (data) => {
-  //     console.log("Message received:", data);
-  //     io.emit("message", data); // Broadcast message to all connected clients
-  //   });
-
-  //   socket.on("disconnect", () => {
-  //     console.log("User disconnected");
-  //   });
-  // });
-
+  /*
+  io.use(authSocket);
+  io.on("connection", (socket) => {
+    socketServer(io, socket);
+  });
+  */
 };
+
 module.exports = {
   startServer,
 };

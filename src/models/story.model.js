@@ -44,7 +44,7 @@ const StorySchema = new Schema({
         type: String,
         default: 'self',
     },
-    // createdAt: { type: Date, default: Date.now, expires: '24h' }, // Story expires after 24 hours
+    created_at: { type: Date, default: Date.now, expires: '24h' }, // Story expires after 24 hours
 });
 
 const Story = mongoose.model('story', StorySchema);

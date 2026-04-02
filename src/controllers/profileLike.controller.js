@@ -57,6 +57,37 @@ module.exports = {
             data.is_liked = true;
             if (req.user && req.user.id) {
                 data.user_id = req.user.id;
+
+                const isPremium = req.body.isPremium || false;
+                const currentUser = await ProfileModel.findById(data.user_id);
+                
+                if (currentUser) {
+                    const now = new Date();
+                    const lastReset = (currentUser.swipeLimits && currentUser.swipeLimits.lastResetDate) ? currentUser.swipeLimits.lastResetDate : new Date(0);
+                    const hoursSinceReset = Math.abs(now - lastReset) / 36e5;
+                    
+                    if (hoursSinceReset >= 24) {
+                        await ProfileModel.updateOne({ _id: currentUser._id }, { 
+                            $set: { 'swipeLimits.count': 0, 'swipeLimits.superLikes': 0, 'swipeLimits.lastResetDate': now } 
+                        });
+                        currentUser.swipeLimits = { count: 0, superLikes: 0, lastResetDate: now };
+                    }
+                    
+                    if (req.body.is_super_like) {
+                        const slCount = (currentUser.swipeLimits && currentUser.swipeLimits.superLikes) ? currentUser.swipeLimits.superLikes : 0;
+                        if (slCount >= 1 && !isPremium) {
+                            return res.status(402).json({ success: false, code: 'PAYWALL_TRIGGER', message: "Daily Super Like limit reached." });
+                        }
+                        await ProfileModel.updateOne({ _id: currentUser._id }, { $inc: { 'swipeLimits.superLikes': 1 } });
+                        data.is_super_like = true;
+                    } else {
+                        const count = (currentUser.swipeLimits && currentUser.swipeLimits.count) ? currentUser.swipeLimits.count : 0;
+                        if (count >= 50 && !isPremium) {
+                            return res.status(402).json({ success: false, code: 'PAYWALL_TRIGGER', message: "Daily swipe limit reached." });
+                        }
+                        await ProfileModel.updateOne({ _id: currentUser._id }, { $inc: { 'swipeLimits.count': 1 } });
+                    }
+                }
             }
             // eslint-disable-next-line max-len
             const isExist = await Model.findOne({ profile_id: mongoose.Types.ObjectId(data.profile_id) });
@@ -71,16 +102,51 @@ module.exports = {
                 return next(createError.BadRequest('Failed to update data.'));
             }
             await Model.create(data);
-            isExist.likeCount = (await Model.find({ profile_id: mongoose.Types.ObjectId(data.profile_id) })).length;
-            // await isExist.save();
             if (isExist) {
-                return res.status(200).json({
-                    success: true,
-                    message: "Successfully.",
-                    status: 200
-                });
+                isExist.likeCount = (await Model.find({ profile_id: mongoose.Types.ObjectId(data.profile_id) })).length;
             }
-            return next(createError.BadRequest('Failed to insert data.'));
+
+            // Check for mutual match
+            const mutualLike = await Model.findOne({ user_id: data.profile_id, profile_id: data.user_id, is_liked: true });
+            if (mutualLike) {
+                 const ConversationModel = require('../models/conversation.model');
+                 const existingConv = await ConversationModel.findOne({
+                     recipients: { $all: [mongoose.Types.ObjectId(data.user_id), mongoose.Types.ObjectId(data.profile_id)] }
+                 });
+
+                 if (!existingConv) {
+                     await ConversationModel.create({
+                         recipients: [data.user_id, data.profile_id],
+                         is_active: true
+                     });
+
+                     // SEND PUSH NOTIFICATION FOR MUTUAL MATCH
+                     try {
+                         const ProfileModel = require('../models/user.model');
+                         const matchedUser = await ProfileModel.findById({ _id: mongoose.Types.ObjectId(data.profile_id) });
+                         const likingUser = await ProfileModel.findById({ _id: mongoose.Types.ObjectId(data.user_id) });
+
+                         if (matchedUser && matchedUser.expoPushToken && likingUser) {
+                             const { sendPushNotification } = require('../helpers/service/pushService');
+                             await sendPushNotification(
+                                 [matchedUser.expoPushToken],
+                                 "New Match! 🔥",
+                                 `You and ${likingUser.name || 'someone'} liked each other! Say hi.`,
+                                 { route: 'Matches' }
+                             );
+                         }
+                     } catch (err) {
+                         console.error("Match Push Error:", err);
+                     }
+                 }
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "Successfully.",
+                status: 200,
+                isMatch: !!mutualLike
+            });
         } catch (error) {
             return next(error);
         }
@@ -119,6 +185,53 @@ module.exports = {
             // }
             return next(createError.BadRequest('Failed.'));
         } catch (error) {
+            return next(error);
+        }
+    },
+    whoLikedMe: async (req, res, next) => {
+        try {
+            if (!req.user || !req.user.id) {
+                return next(createError.Unauthorized('Invalid User Auth Token'));
+            }
+            const myId = mongoose.Types.ObjectId(req.user.id);
+
+            const likesAggregate = await Model.aggregate([
+                {
+                    $match: {
+                        profile_id: myId,
+                        is_liked: true
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'user_id',
+                        foreignField: '_id',
+                        as: 'LikingUser'
+                    }
+                },
+                {
+                    $unwind: '$LikingUser'
+                },
+                {
+                    $project: {
+                        _id: '$LikingUser._id',
+                        name: '$LikingUser.name',
+                        age: '$LikingUser.age',
+                        location: '$LikingUser.location',
+                        profile_url_1: '$LikingUser.profile_url_1',
+                        is_active: '$LikingUser.is_active'
+                    }
+                }
+            ]);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Generated Premium Pending Likes Feed',
+                data: likesAggregate
+            });
+        } catch (error) {
+            console.error("Who Liked Me Error:", error);
             return next(error);
         }
     },

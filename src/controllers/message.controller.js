@@ -164,10 +164,28 @@ module.exports = {
             });
 
             conversation.lastMessageAt = Date.now();
+            await conversation.save();
 
-            conversation.save();
+            // SEND PUSH NOTIFICATION FOR NEW MESSAGE
+            try {
+                const ProfileModel = require('../models/user.model');
+                const sender = await ProfileModel.findById(userId);
+                const recipient = await ProfileModel.findById(recipientId);
 
-            return res.json({ success: true })
+                if (recipient && recipient.expoPushToken && sender) {
+                    const { sendPushNotification } = require('../helpers/service/pushService');
+                    await sendPushNotification(
+                        [recipient.expoPushToken],
+                        `New message from ${sender.name || 'someone'} 💬`,
+                        content.length > 50 ? content.substring(0, 50) + '...' : content,
+                        { route: 'Chat', recipientId: String(sender._id), recipientName: sender.name }
+                    );
+                }
+            } catch (err) {
+                console.error("Message Push Error:", err);
+            }
+
+            return res.json({ success: true });
 
             // const recipient = await Model.findById(recipientId);
 

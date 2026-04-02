@@ -52,7 +52,7 @@ module.exports = {
                     // Save file paths to the mediaUrls array
                     console.log("req.files", req.files);
                     if (req.files && req.files.length > 0) {
-                        data.mediaUrls = req.files.map(file => `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${file.filename}`); // Multiple file paths
+                        data.mediaUrls = req.files.map(file => file.path); // Multiple Cloudinary URLs
                     }
                     // Create a new story with the data and images
                     const newStory = new Story(data);
@@ -236,18 +236,29 @@ module.exports = {
 
     GetFriendListStory: async (req, res, next) => {
         try {
-            const { id } = req.query;
+            const user_id = req.user && req.user.id ? req.user.id : null;
             let query = {};
-            // if (id) {
-            //     query = {
-            //         "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
-            //     };
-            // }
-            // if (id) {
-            //     query = {
-            //         "viewers.id": mongoose.Types.ObjectId(id) // Directly match viewers.id with the passed ID
-            //     };
-            // }
+            
+            // 🚫 Safety Blocklist Extractor
+            let blockedUserIds = [];
+            if (user_id) {
+                const BlockModel = require('../models/Block.model');
+                const mongoose = require('mongoose');
+                const blockLogs = await BlockModel.find({
+                    $or: [
+                        { blocker: mongoose.Types.ObjectId(user_id) },
+                        { blocked: mongoose.Types.ObjectId(user_id) }
+                    ],
+                    isBlocked: true
+                });
+                blockedUserIds = blockLogs.map(b => 
+                    b.blocker.toString() === user_id.toString() ? mongoose.Types.ObjectId(b.blocked) : mongoose.Types.ObjectId(b.blocker)
+                );
+                
+                // Exclude self and blocked users
+                query.user_id = { $nin: [ mongoose.Types.ObjectId(user_id), ...blockedUserIds ] };
+            }
+
             const stories = await Story.aggregate([
                 {
                     $match: query // Apply the filtering query

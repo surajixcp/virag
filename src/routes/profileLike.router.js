@@ -24,6 +24,8 @@ router.get('/getDataById', Controller.getDataById);
 
 router.get('/getlikesByprofileId', verifyAccessToken, Controller.getlikesByProfileId);
 
+router.get('/who-liked-me', verifyAccessToken, Controller.whoLikedMe);
+
 router.put('/deleteDataById', Controller.deleteDataById);
 
 router.put('/restoreDataById', Controller.restoreDataById);

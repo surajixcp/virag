@@ -300,17 +300,34 @@ module.exports = {
       return next(error);
     }
   },
-  permanentDeleteDataById: async (req, res, next) => {
+    permanentDeleteDataById: async (req, res, next) => {
     try {
       const { id } = req.params;
       if (!id) {
         throw createError.BadRequest('Invalid Parameters');
       }
 
-      let result = {};
-      result = await Model.deleteOne({ _id: mongoose.Types.ObjectId(id) });
+      // 1. Wipe the Primary User Document
+      const result = await Model.deleteOne({ _id: mongoose.Types.ObjectId(id) });
+      
       if (result) {
-        return res.status(200).json({ success: true, message: 'Data Deleted Successfully' });
+          // 2. Cascade delete all incoming/outgoing Swipes and Matches
+          const ProfileLikeModel = require('../models/profileLike.model');
+          await ProfileLikeModel.deleteMany({
+              $or: [{ user_id: id }, { profile_id: id }]
+          });
+
+          // 3. Cascade delete Conversations locking this User
+          const ConversationModel = require('../models/conversation.model');
+          await ConversationModel.deleteMany({
+              recipients: mongoose.Types.ObjectId(id)
+          });
+
+          // 4. Cascade wipe all Chat Messages dispatched by this User
+          const MessageModel = require('../models/message.model');
+          await MessageModel.deleteMany({ fromUserId: id });
+
+          return res.status(200).json({ success: true, message: 'Account & Live Data Ecosystem Erased Successfully' });
       }
       return next(createError.BadRequest('Failed to delete data.'));
     } catch (error) {

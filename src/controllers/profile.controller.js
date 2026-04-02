@@ -59,6 +59,69 @@ module.exports = {
       */
     getInfo: async (req, res) => res.status(200).json({ message: `${ADMIN_SERVICE_WELCOME_MSG(ModuleName)} Info Route Working` }),
 
+    updatePushToken: async (req, res, next) => {
+        try {
+            const { pushToken } = req.body;
+            let id;
+            if (req.user && req.user.id) {
+                id = req.user.id;
+            }
+            if (!id || !pushToken) {
+                return res.status(400).json({ success: false, message: 'Missing token or user ID' });
+            }
+            
+            const result = await Model.findByIdAndUpdate(
+                { _id: mongoose.Types.ObjectId(id) }, 
+                { $set: { expoPushToken: pushToken, updated_at: new Date() } }
+            );
+
+            if (result) {
+                return res.status(200).json({ success: true, status: 200, message: 'Push Token Updated Successfully' });
+            }
+            return next(createError.BadRequest('Failed to update push token.'));
+        } catch (error) {
+            return next(error);
+        }
+    },
+
+    getProfile: async (req, res, next) => {
+        try {
+            const id = req.user.id || req.user._id;
+            if (!id) {
+                return next(createError.Unauthorized('User not authenticated'));
+            }
+            const result = await Model.aggregate([
+                {
+                    $match: { _id: mongoose.Types.ObjectId(id) },
+                },
+                {
+                    $lookup: {
+                        from: 'lifestyles',
+                        localField: '_id',
+                        foreignField: 'user_id',
+                        as: 'lifestyle'
+                    }
+                },
+                {
+                    $addFields: {
+                        lifestyle: { $arrayElemAt: ['$lifestyle', 0] }
+                    }
+                }
+            ]);
+            if (!result.length) {
+                return next(createError.NotFound('Profile not found'));
+            }
+            return res.status(200).json({
+                success: true,
+                status: 200,
+                message: 'Profile fetched successfully',
+                data: result[0]
+            });
+        } catch (error) {
+            return next(error);
+        }
+    },
+
     create: async (req, res, next) => {
         try {
             return uploadProfileData(req, res, async (err) => {
@@ -75,7 +138,7 @@ module.exports = {
                     ];
                     fileKeys.forEach((key) => {
                         if (req.files[key] && req.files[key][0]) {
-                            req.body[key] = `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${req.files[key][0].filename}`
+                            req.body[key] = req.files[key][0].path;
                         }
                     });
                     req.body.incognito = false;
@@ -164,7 +227,7 @@ module.exports = {
                     ];
                     fileKeys.forEach((key) => {
                         if (req.files[key] && req.files[key][0]) {
-                            req.body[key] = `/api/download/uploads/${currentDateInfo.year}/${currentDateInfo.month}/${req.files[key][0].filename}`
+                            req.body[key] = req.files[key][0].path;
                         }
                     });
                     req.body.incognito = false;
@@ -207,50 +270,57 @@ module.exports = {
                 return next(createError.BadRequest(err.message));
             }
             if (!req.file) {
-                return next(createError.BadRequest('Profile image is required'));
+                console.log("Verification upload failed: No image found in request");
+                return res.status(400).json({ success: false, message: 'Verification selfie is strictly required.' });
             }
-            const currentImagePath = req.file.path;
-            let id;
-            if (req.user && req.user.id) {
-                id = req.user.id;
-            }
+            console.log("Processing verification for user:", req.user && req.user.id ? req.user.id : "null", "File:", req.file && req.file.path ? req.file.path : "null");
             try {
+                let id = (req.user && (req.user._id || req.user.id)) ? (req.user._id || req.user.id) : null;
+                if (!id) {
+                    console.log("Verification Error: User ID missing from request user object");
+                    return res.status(401).json({ success: false, message: 'Unauthorized access. Session might have expired.' });
+                }
                 const doesExist = await Model.findOne({ _id: mongoose.Types.ObjectId(id) });
-                if (!doesExist) {
-                    return next(createError.BadRequest(`Please login ${JSON.stringify(doesExist)}`));
+                if (doesExist) {
+                    const updatedData = { 
+                        is_verified: true, 
+                        verification_image: req.file.path,
+                        verification_status: 'verified',
+                        updated_at: new Date()
+                    };
+                    await Model.updateOne({ _id: mongoose.Types.ObjectId(id) }, { $set: updatedData });
+                    console.log("Profile Successfully Verified for user:", id);
+                    return res.status(200).json({ success: true, message: 'Profile Successfully Verified!' });
                 }
-                const previousImagePathUrl = `${process.env.BASEURL + doesExist.profile_url_1}`;
-                const previousImagePathLocal = path.join(__dirname, 'downloads', path.basename(previousImagePathUrl));
-                let areImagesSame = false;
-                if (fs.existsSync(previousImagePathLocal)) {
-                    areImagesSame = await compareImages(currentImagePath, previousImagePathLocal);
-                } else {
-                    await downloadImage(previousImagePathUrl, previousImagePathLocal);
-                    areImagesSame = await compareImages(currentImagePath, previousImagePathLocal);
-                }
-                const data = req.body;
-                data.is_verified = areImagesSame ? true : false
-                if (areImagesSame) {
-                    let result = {};
-                    // eslint-disable-next-line max-len
-                    result = await Model.findByIdAndUpdate({ _id: mongoose.Types.ObjectId(doesExist._id) }, { $set: data });
-                    // TODO: Set notifications for super admin to approve this service
-                    if (result) {
-                        return res.status(200).json({ Status: areImagesSame, StatusCode: 200, });
-                    }
-                }
-                return res.status(200).json({
-                    Status: areImagesSame,
-                    Message: "Doesn't Match"
-                });
-
+                return res.status(404).json({ success: false, message: 'Account not found.' });
             } catch (error) {
-                return next(createError.InternalServerError('Error verifying profile'));
-            } finally {
-                // Clean up any remaining temporary file if it's not used
-                await fs.promises.unlink(currentImagePath).catch(() => { });
+                console.error("Verification DB Error:", error);
+                return res.status(500).json({ success: false, message: 'Internal server error during verification.' });
             }
         });
+    },
+
+    updateFilters: async (req, res, next) => {
+        try {
+            const userId = req.user.aud;
+            const { discoverySettings, interested_in } = req.body;
+            
+            if (!discoverySettings) {
+                return next(createError.BadRequest('Missing discoverySettings parameters'));
+            }
+
+            const updatePayload = {
+                discoverySettings,
+                ...(interested_in && { interested_in })
+            };
+
+            await Model.findByIdAndUpdate(mongoose.Types.ObjectId(userId), { $set: updatePayload });
+            
+            return res.status(200).json({ success: true, message: "Discovery filters successfully mapped to active profile." });
+        } catch (error) {
+            console.error("Filter Update Error:", error);
+            return next(createError.InternalServerError('Error updating discovery parameters'));
+        }
     },
 
     updateById: async (req, res, next) => {
@@ -305,7 +375,36 @@ module.exports = {
             const _skip = (_page - 1) * _limit;
             const _sort = sort || 'name';
             const query = {};
-            let list = [];
+            
+            let currentUser = null;
+            let blockedUserIds = [];
+
+            if (user_id) {
+                currentUser = await Model.findById(mongoose.Types.ObjectId(user_id));
+                const BlockModel = require('../models/Block.model');
+                const blockLogs = await BlockModel.find({
+                    $or: [
+                        { blocker: mongoose.Types.ObjectId(user_id) },
+                        { blocked: mongoose.Types.ObjectId(user_id) }
+                    ],
+                    isBlocked: true
+                });
+                blockedUserIds = blockLogs.map(b => 
+                    b.blocker.toString() === user_id.toString() ? mongoose.Types.ObjectId(b.blocked) : mongoose.Types.ObjectId(b.blocker)
+                );
+            }
+            
+            // Append explicit exclusion of self + blocked
+            query._id = { $nin: [ mongoose.Types.ObjectId(user_id), ...blockedUserIds ] };
+            
+            // Age limitations
+            if (currentUser && currentUser.discoverySettings) {
+                query.age = {
+                    $gte: currentUser.discoverySettings.minAge || 18,
+                    $lte: currentUser.discoverySettings.maxAge || 60
+                };
+            }
+
             if (name) {
                 query.name = { $regex: name, $options: "i" };
             }
@@ -316,26 +415,40 @@ module.exports = {
                 } else {
                     regexPattern = interested_in;
                 }
-
                 query.interested_in = { $regex: regexPattern, $options: "i" };
             }
             if (location) {
                 query.location = { $regex: location, $options: "i" };
             }
-            // ✅ Restrict users here
-            // query.is_verified = true;   // must be verified
-            query.is_active = true;     // must be active
-            query.otp_verified = true;  // must have OTP verified
-            query.is_oldUser = true;  // must have OTP verified
-            // "is_active": false,
+            
+            query.is_active = true;
+            query.otp_verified = true;
+            query.is_oldUser = true;
          
             if (gender) {
                 query.gender = { $regex: gender, $options: "i" };
             }
-            list = await Model.aggregate([
-                {
-                    $match: query,
-                },
+
+            const pipeline = [];
+
+            // Execute $geoNear as the absolute initial state if geo coordinates exist natively
+            if (currentUser && currentUser.geoLocation && currentUser.geoLocation.coordinates && currentUser.geoLocation.coordinates.length === 2) {
+                const searchRadiusMeters = ((currentUser.discoverySettings && currentUser.discoverySettings.maxDistance) || 50) * 1000;
+                pipeline.push({
+                    $geoNear: {
+                        near: { type: 'Point', coordinates: currentUser.geoLocation.coordinates },
+                        distanceField: "dist.calculated",
+                        maxDistance: searchRadiusMeters,
+                        spherical: true,
+                        query: query
+                    }
+                });
+            } else {
+                pipeline.push({ $match: query });
+            }
+
+            // Remainder of normal nested aggregations
+            const remainingStages = [
                 {
                     $lookup: {
                         from: 'profilelikes',
@@ -372,6 +485,30 @@ module.exports = {
                         as: 'skipped'
                     }
                 },
+
+                {
+                    $lookup: {
+                        from: 'profilelikes',
+                        let: { targetId: "$_id" },
+                        pipeline: [
+                            { $match: { 
+                                $expr: { 
+                                    $and: [
+                                        { $eq: ["$user_id", "$$targetId"] },
+                                        { $eq: ["$profile_id", mongoose.Types.ObjectId(user_id)] },
+                                        { $eq: ["$is_super_like", true] }
+                                    ]
+                                }
+                            }}
+                        ],
+                        as: 'receivedSuperLikes'
+                    }
+                },
+                {
+                    $addFields: {
+                        isSuperLiker: { $gt: [{ $size: "$receivedSuperLikes" }, 0] }
+                    }
+                },
                 {
                     $match: {
                         _id: { $ne: mongoose.Types.ObjectId(user_id) } // Exclude own profile
@@ -392,7 +529,6 @@ module.exports = {
                         location: 1,
                         email: 1,
                         gender: 1,
-                        email: 1,
                         age: 1,
                         "likes._id": 1,
                         "likes.user_id": 1,
@@ -407,10 +543,11 @@ module.exports = {
                         "skipped.is_read": 1,
                         "skipped.is_skipped": 1,
                         "selfDescription": 1,
+                        "isSuperLiker": 1,
                     }
                 },
                 {
-                    $sort: { [_sort]: 1 },
+                    $sort: { isSuperLiker: -1, [_sort]: 1 },
                 },
                 {
                     $skip: _skip,
@@ -418,7 +555,11 @@ module.exports = {
                 {
                     $limit: _limit,
                 },
-            ]);
+            ];
+
+            const finalPipeline = pipeline.concat(remainingStages);
+            list = await Model.aggregate(finalPipeline);
+            
             const resultCount = await Model.countDocuments(query);
             if (list) {
                 return res.status(200).json({

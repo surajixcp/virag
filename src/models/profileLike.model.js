@@ -27,6 +27,10 @@ const TableSchema = new Schema({
         type: Boolean,
         default: true,
     },
+    is_super_like: {
+        type: Boolean,
+        default: false,
+    },
     created_at: {
         type: Date,
         default: new Date(),
