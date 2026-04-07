@@ -8,7 +8,8 @@ By default, redis.createClient() will use 127.0.0.1 and 6379 as the hostname and
 If you have a different host/port, you can supply them like so:
 const client = redis.createClient(port, host);
 * */
-const client = createClient();
+const redisUrl = process.env.REDIS_URL || process.env.REDIS_URI;
+const client = redisUrl ? createClient({ url: redisUrl }) : createClient();
 client.connect();
 
 client.on('connect', () => {
