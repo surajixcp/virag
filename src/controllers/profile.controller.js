@@ -341,7 +341,7 @@ module.exports = {
             await LifeStyle.findOneAndUpdate(
                 { user_id: mongoose.Types.ObjectId(fondedData._id) }, // Query by user_id
                 { $set: data }, // Update data
-                { new: true } // Return the updated document
+                { new: true, upsert: true } // Return the updated document and create if doesn't exist
             );
             const updatedData = await Model.findOne({ _id: mongoose.Types.ObjectId(Id) });
             const lifestyle = await LifeStyle.findOne({ user_id: mongoose.Types.ObjectId(fondedData._id) });
@@ -397,13 +397,13 @@ module.exports = {
             // Append explicit exclusion of self + blocked
             query._id = { $nin: [ mongoose.Types.ObjectId(user_id), ...blockedUserIds ] };
             
-            // Age limitations
-            if (currentUser && currentUser.discoverySettings) {
-                query.age = {
-                    $gte: currentUser.discoverySettings.minAge || 18,
-                    $lte: currentUser.discoverySettings.maxAge || 60
-                };
-            }
+            // Age limitations (Removed temporarily to test/view all old dummy users)
+            // if (currentUser && currentUser.discoverySettings) {
+            //     query.age = {
+            //         $gte: currentUser.discoverySettings.minAge || 18,
+            //         $lte: currentUser.discoverySettings.maxAge || 60
+            //     };
+            // }
 
             if (name) {
                 query.name = { $regex: name, $options: "i" };
@@ -432,20 +432,21 @@ module.exports = {
             const pipeline = [];
 
             // Execute $geoNear as the absolute initial state if geo coordinates exist natively
-            if (currentUser && currentUser.geoLocation && currentUser.geoLocation.coordinates && currentUser.geoLocation.coordinates.length === 2) {
-                const searchRadiusMeters = ((currentUser.discoverySettings && currentUser.discoverySettings.maxDistance) || 50) * 1000;
-                pipeline.push({
-                    $geoNear: {
-                        near: { type: 'Point', coordinates: currentUser.geoLocation.coordinates },
-                        distanceField: "dist.calculated",
-                        maxDistance: searchRadiusMeters,
-                        spherical: true,
-                        query: query
-                    }
-                });
-            } else {
+            // (Disabled temporarily to show ALL old users regardless of distance)
+            // if (currentUser && currentUser.geoLocation && currentUser.geoLocation.coordinates && currentUser.geoLocation.coordinates.length === 2) {
+            //     const searchRadiusMeters = ((currentUser.discoverySettings && currentUser.discoverySettings.maxDistance) || 50) * 1000;
+            //     pipeline.push({
+            //         $geoNear: {
+            //             near: { type: 'Point', coordinates: currentUser.geoLocation.coordinates },
+            //             distanceField: "dist.calculated",
+            //             maxDistance: searchRadiusMeters,
+            //             spherical: true,
+            //             query: query
+            //         }
+            //     });
+            // } else {
                 pipeline.push({ $match: query });
-            }
+            // }
 
             // Remainder of normal nested aggregations
             const remainingStages = [
