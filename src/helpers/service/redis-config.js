@@ -16,6 +16,8 @@ const pub = createRedisConfig();
 const sub = createRedisConfig();
 
 store.on('connect', () => console.log('Redis connected'));
-store.on('error', (error) => console.error('Redis connection error:', error));
+store.on('error', (error) => console.error('Redis store connection error:', error));
+pub.on('error', (error) => console.error('Redis pub connection error:', error));
+sub.on('error', (error) => console.error('Redis sub connection error:', error));
 
 module.exports = { store, pub, sub };
